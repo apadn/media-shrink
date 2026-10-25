@@ -1,0 +1,21 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+node_modules
+data
+media
+output
+*.log
+.DS_Store
+README.md
+LICENSE
+.github
+docs
+# tools 只在构建镜像时用得上 hw-doctor，其余脚本不进镜像
+tools
+!tools/hw-doctor.sh
+test

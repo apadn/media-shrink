@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="MediaShrink">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b212d"/>
+      <stop offset="1" stop-color="#0e1218"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="126" height="126" rx="27" fill="url(#bg)"/>
+  <path d="M18 38v52l34-26z" fill="#5b8cff"/>
+  <path d="M110 38v52L76 64z" fill="#5b8cff"/>
+  <rect x="60" y="38" width="8" height="52" fill="#e7eaf0"/>
+</svg>
