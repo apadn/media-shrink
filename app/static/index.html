@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MediaShrink v{{APP_VERSION}} · 媒体压缩</title>
+<link rel="icon" href="/static/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<meta name="theme-color" content="#0c0e12">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">◧</span>
+    <div>
+      <h1>MediaShrink<span id="appVersion" class="ver-chip" title="当前运行的镜像版本">v{{APP_VERSION}}</span></h1>
+      <p class="sub">ffmpeg 媒体体积压缩 · 硬编码加速</p>
+    </div>
+  </div>
+  <div class="hw-zone">
+    <div id="hwBadges" class="badges"><span class="badge muted">探测硬件中…</span></div>
+    <button id="refreshHw" class="ghost" title="重新探测编码器">重新探测</button>
+  </div>
+</header>
+
+<main>
+  <!-- 扫描 -->
+  <section class="panel">
+    <div class="field-row">
+      <div class="grow">
+        <label class="lbl">媒体目录（容器内路径）</label>
+        <input id="pathInput" type="text" placeholder="/media/movies" autocomplete="off">
+      </div>
+      <button id="browseBtn" class="ghost">浏览</button>
+      <button id="scanBtn" class="primary">扫描</button>
+    </div>
+    <div class="opts">
+      <label class="chk"><input type="checkbox" id="recursive" checked> 包含子目录</label>
+      <label class="chk">最小体积 <input id="minSize" type="number" value="1" min="0" step="1" class="num"> MB</label>
+      <label class="chk">编码器
+        <select id="prefSel">
+          <option value="auto">自动（优先硬编码）</option>
+          <option value="intel">Intel 核显（QSV / VAAPI）</option>
+          <option value="nvidia">NVIDIA（NVENC）</option>
+          <option value="amd">AMD（VAAPI / AMF）</option>
+          <option value="cpu">仅 CPU</option>
+        </select>
+      </label>
+      <label class="chk">默认预设 <select id="presetSel"></select></label>
+    </div>
+
+    <div class="opts exclude-row">
+      <label class="lbl" for="excludeInput">排除文件夹</label>
+      <input id="excludeInput" type="text" class="exclude-input" autocomplete="off"
+             placeholder="@eaDir, #recycle, 花絮, */sample">
+      <span class="hint"
+            title="默认按目录名匹配，不区分大小写；含 / 时按相对路径匹配。例：花絮 = 任意层级同名目录，*/Extras = 任意一级下的 Extras，电影/花絮 = 只跳过该路径。以 . 开头的隐藏目录始终跳过。">逗号分隔，支持 <code>*</code> <code>?</code> 通配</span>
+    </div>
+
+    <!-- 手动配置：默认预设选「手动配置」时展开 -->
+    <div id="manualPanel" class="manual-panel" hidden>
+      <div class="manual-head">
+        <h3>手动配置</h3>
+        <span class="muted small">全部文件按这里的参数压缩；也可以只对某一行单独改（展开该行）</span>
+        <button class="link" data-mp-act="reset">恢复默认</button>
+      </div>
+      <div id="manualBody"></div>
+    </div>
+  </section>
+
+  <!-- 扫描结果 -->
+  <section class="panel" id="resultPanel" hidden>
+    <div class="panel-head">
+      <h2>扫描结果 <span id="statsText" class="muted small"></span></h2>
+      <div class="head-actions">
+        <select id="bulkPreset" class="mini"></select>
+        <button id="applyPreset" class="ghost mini-btn">应用到勾选</button>
+        <button id="startBtn" class="primary">开始压缩</button>
+      </div>
+    </div>
+
+    <!-- A 组：非 AV1 / HEVC -->
+    <div class="group" data-group="convert">
+      <div class="group-head">
+        <h3>
+          <i class="dot yes"></i> 需要转码
+          <span class="badge warn" id="convertBadge">0</span>
+          <span class="muted small">H.264 / 其他编码 · 压缩收益最大</span>
+        </h3>
+        <div class="group-tools">
+          <label class="chk"><input type="checkbox" id="checkAllConvert"> 全选</label>
+          <button class="link" data-sel="recommend" data-group="convert">只选建议压缩</button>
+          <button class="link" data-sel="none" data-group="convert">清空</button>
+          <span class="legend">
+            <i class="dot yes"></i>建议 <i class="dot maybe"></i>一般 <i class="dot skip"></i>不建议
+          </span>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="c-chk"></th>
+              <th class="c-name">文件</th>
+              <th class="c-size">体积</th>
+              <th class="c-res">分辨率</th>
+              <th class="c-codec">编码 / 码率</th>
+              <th class="c-audio">音轨</th>
+              <th class="c-sub">字幕</th>
+              <th class="c-est">预估</th>
+              <th class="c-preset">预设</th>
+            </tr>
+          </thead>
+          <tbody id="convertBody"></tbody>
+        </table>
+      </div>
+      <div class="pager" id="convertPager"></div>
+    </div>
+
+    <!-- B 组：已是 AV1 / HEVC -->
+    <div class="group" data-group="already">
+      <div class="group-head">
+        <h3>
+          <i class="dot av1"></i> 已是 AV1 / HEVC
+          <span class="badge ok" id="alreadyBadge">0</span>
+          <span class="muted small">默认不压缩；码率虚高或需要整理字幕/音轨时再勾选</span>
+        </h3>
+        <div class="group-tools">
+          <label class="chk"><input type="checkbox" id="checkAllAlready"> 全选</label>
+          <button class="link" data-sel="recommend" data-group="already">只选建议压缩</button>
+          <button class="link" data-sel="none" data-group="already">清空</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="c-chk"></th>
+              <th class="c-name">文件</th>
+              <th class="c-size">体积</th>
+              <th class="c-res">分辨率</th>
+              <th class="c-codec">编码 / 码率</th>
+              <th class="c-audio">音轨</th>
+              <th class="c-sub">字幕</th>
+              <th class="c-est">预估</th>
+              <th class="c-preset">预设</th>
+            </tr>
+          </thead>
+          <tbody id="alreadyBody"></tbody>
+        </table>
+      </div>
+      <div class="pager" id="alreadyPager"></div>
+    </div>
+  </section>
+
+  <!-- 任务队列 -->
+  <section class="panel" id="jobPanel">
+    <div class="panel-head">
+      <h2>任务队列 <span id="jobStats" class="muted small"></span></h2>
+      <div class="head-actions">
+        <button id="srcBulkRename" class="ghost mini-btn" hidden>源文件批量改名 .old</button>
+        <button id="srcBulkRenameOut" class="ghost mini-btn" hidden>输出改回源文件名</button>
+        <button id="srcBulkDelete" class="ghost mini-btn danger-ghost" hidden>批量删除源文件…</button>
+        <button id="clearJobs" class="ghost mini-btn">清理已结束</button>
+      </div>
+    </div>
+    <div id="jobList" class="job-list"><p class="empty">暂无任务</p></div>
+  </section>
+</main>
+
+<!-- 目录浏览 -->
+<div class="modal" id="browserModal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>选择目录</h3>
+      <button class="ghost mini-btn" data-close="browserModal">关闭</button>
+    </div>
+    <div class="crumbs" id="browserCrumbs"></div>
+    <div class="browser-list" id="browserList"></div>
+    <div class="modal-foot">
+      <span id="browserPath" class="muted small"></span>
+      <button id="browserPick" class="primary">使用此目录</button>
+    </div>
+  </div>
+</div>
+
+<!-- 确认 -->
+<div class="modal" id="confirmModal" hidden>
+  <div class="modal-box narrow">
+    <div class="modal-head"><h3>确认开始压缩</h3></div>
+    <div id="confirmBody" class="confirm-body"></div>
+    <div class="modal-foot">
+      <button class="ghost" data-close="confirmModal">再想想</button>
+      <button id="confirmStart" class="primary">确认开始</button>
+    </div>
+  </div>
+</div>
+
+<!-- 删除源文件确认 -->
+<div class="modal" id="delModal" hidden>
+  <div class="modal-box narrow">
+    <div class="modal-head"><h3>永久删除源文件</h3></div>
+    <div id="delBody" class="confirm-body"></div>
+    <div class="modal-foot">
+      <button class="ghost" data-close="delModal">取消</button>
+      <button id="delConfirm" class="danger" disabled>永久删除</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<!-- 硬件编码器明细 -->
+<div class="modal" id="hwModal" hidden>
+  <div class="modal-box wide">
+    <div class="modal-head">
+      <h3>硬件编码器实测结果</h3>
+      <button class="ghost mini-btn" data-close="hwModal">关闭</button>
+    </div>
+    <div id="hwBody" class="hw-detail"></div>
+    <div id="hwReportBox" hidden></div>
+    <div class="modal-foot">
+      <span class="muted small">启动时与点「重新探测」后各跑一遍，每次 0.3 秒</span>
+      <span class="grow"></span>
+      <button id="hwReport" class="ghost">完整自检报告</button>
+      <button id="hwReprobe" class="primary">重新探测</button>
+    </div>
+  </div>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>
