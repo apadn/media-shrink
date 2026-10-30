@@ -1,8 +1,8 @@
 services:
   media-shrink:
-    # 本地构建出来的镜像名就是 media-shrink:latest；
-    # 用自己仓库里的镜像就设 IMAGE=<你的账号>/media-shrink:latest
-    image: ${IMAGE:-media-shrink:latest}
+    # build.sh 默认打出来的是 xdxy/media-shrink:latest
+    # 想用别的前缀就设 IMAGE=<你的账号>/media-shrink:latest
+    image: ${IMAGE:-xdxy/media-shrink:latest}
     build:
       context: .
       args:

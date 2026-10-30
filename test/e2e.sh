@@ -5,7 +5,7 @@
 #   3) 音轨逐条选择，输出只保留勾选的轨
 set -euo pipefail
 
-IMG="${IMG:-media-shrink:test}"
+IMG="${IMG:-xdxy/media-shrink:test}"
 WORK=/tmp/ms-e2e
 PORT="${PORT:-18420}"
 export PORT WORK
@@ -222,7 +222,7 @@ done
 import json, os, subprocess, sys
 
 work = os.environ["WORK"]
-img = os.environ.get("IMG", "media-shrink:test")
+img = os.environ.get("IMG", "xdxy/media-shrink:test")
 
 def probe(stem):
     """按 stem 找输出文件（默认 mkv；仍兼容 mp4/webm，方便改配置后回归）。"""

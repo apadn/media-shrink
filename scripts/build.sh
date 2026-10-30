@@ -11,7 +11,7 @@
 #   ./scripts/build.sh --tar --push    构建、导出、再推送
 #
 # 环境变量：
-#   NS          镜像仓库前缀（如 Docker Hub 账号名），不设则镜像名为本地名 media-shrink
+#   NS          镜像仓库前缀（默认 xdxy），最终镜像名为 <NS>/media-shrink
 #   APT_MIRROR  apt 源，默认 mirrors.ustc.edu.cn（海外可设 deb.debian.org）
 #   PIP_INDEX_URL  pip 源，默认 https://pypi.org/simple
 set -euo pipefail
@@ -29,13 +29,13 @@ usage() {
 版本号取自 app/config.py 的 APP_VERSION，构建后自动校验两个标签指向同一镜像。
 
 环境变量：
-  NS             镜像仓库前缀，不设则镜像名为本地名 media-shrink
+  NS             镜像仓库前缀，默认 xdxy（镜像名 <NS>/media-shrink）
   APT_MIRROR     apt 源，默认 mirrors.ustc.edu.cn（海外可设 deb.debian.org）
   PIP_INDEX_URL  pip 源，默认 https://pypi.org/simple
 EOF
 }
 
-NS="${NS:-}"
+NS="${NS:-xdxy}"
 APT_MIRROR="${APT_MIRROR:-mirrors.ustc.edu.cn}"
 PIP_INDEX_URL="${PIP_INDEX_URL:-https://pypi.org/simple}"
 
@@ -56,17 +56,13 @@ if [ -z "$VERSION" ]; then
   exit 1
 fi
 
-# 镜像名：不设 NS 就是本地名 media-shrink；设了就加仓库前缀 <NS>/media-shrink
-if [ -n "$NS" ]; then
-  IMAGE="$NS/media-shrink"
-else
-  IMAGE="media-shrink"
-fi
-
-if [ "$DO_PUSH" = 1 ] && [ -z "$NS" ]; then
-  echo "--push 需要镜像仓库前缀，例如：NS=你的账号 ./scripts/build.sh --push" >&2
+# 镜像名必须带命名空间，且永远不要改：NAS（Unraid 等）的容器模板里写死的是
+# xdxy/media-shrink:latest，改名会导致拉不到镜像、自动更新失效。
+if [ -z "$NS" ]; then
+  echo "NS 不能为空：镜像名必须是 <命名空间>/media-shrink（默认 xdxy）" >&2
   exit 1
 fi
+IMAGE="$NS/media-shrink"
 
 VER_TAG="$IMAGE:$VERSION"
 LATEST_TAG="$IMAGE:latest"

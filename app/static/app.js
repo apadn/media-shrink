@@ -140,7 +140,50 @@ function showVersion(v) {
   document.title = `MediaShrink v${ver} · 媒体压缩`;
 }
 
+/* ------------------------------ 面板折叠 ------------------------------ */
+// 扫描结果显示 / 任务队列 / 转码历史 都可以折叠：列表一长就不用一路往下滚。
+// 折叠状态记在 localStorage，刷新后保持原样。
+const COLLAPSE_KEY = 'ms.collapsed';
+
+function collapsedSet() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]');
+    return new Set(Array.isArray(raw) ? raw : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function setPanelCollapsed(panel, collapsed, persist = true) {
+  if (!panel) return;
+  panel.classList.toggle('collapsed', !!collapsed);
+  const btn = panel.querySelector('[data-panel-btn]');
+  if (btn) btn.setAttribute('aria-expanded', String(!collapsed));
+  if (!persist) return;
+  const set = collapsedSet();
+  if (collapsed) set.add(panel.id);
+  else set.delete(panel.id);
+  localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...set]));
+}
+
+function restorePanelState() {
+  const set = collapsedSet();
+  document.querySelectorAll('.panel').forEach((p) => {
+    if (set.has(p.id)) setPanelCollapsed(p, true, false);
+  });
+}
+
+function bindPanelToggles() {
+  document.querySelectorAll('.panel [data-panel-btn]').forEach((btn) => {
+    const panel = btn.closest('.panel');
+    btn.addEventListener('click', () => {
+      setPanelCollapsed(panel, !panel.classList.contains('collapsed'));
+    });
+  });
+}
+
 async function init() {
+  restorePanelState();
   bindEvents();
   try {
     const [cfg, ps] = await Promise.all([api('/api/config'), api('/api/presets')]);
@@ -453,6 +496,8 @@ async function doScan() {
     );
     renderTable();
     $('#resultPanel').hidden = false;
+    // 扫完就是要看结果，之前折叠着的话这次自动展开（不写回记忆，下次仍按用户习惯）
+    setPanelCollapsed($('#resultPanel'), false, false);
     const st = r.stats || {};
     if (!r.items.length) {
       toast('没有找到视频文件');
@@ -1313,6 +1358,8 @@ async function startJobs() {
     const r = await api('/api/jobs', 'POST', payload);
     toast(`已加入队列：${r.jobs.length} 个任务`);
     pollJobs();
+    // 刚提交完肯定要看进度，队列若折叠着就展开
+    setPanelCollapsed(document.getElementById('jobPanel'), false, false);
     document.getElementById('jobPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   } catch (e) {
     toast('提交失败：' + e.message, true);
@@ -1419,6 +1466,7 @@ function applyTrackAction(it, kind) {
 }
 
 function bindEvents() {
+  bindPanelToggles();
   $('#scanBtn').addEventListener('click', doScan);
   $('#pathInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') doScan(); });
   $('#excludeInput').addEventListener('change', () => {

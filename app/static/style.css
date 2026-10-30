@@ -121,6 +121,42 @@ main {
 .panel-head h2 { font-size: 14.5px; letter-spacing: .2px; }
 .head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
+/* 可折叠面板：标题就是开关，折叠后只剩一行 */
+.panel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 1px 4px 1px 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.panel-btn:hover { color: #fff; }
+.panel-btn:focus-visible { outline: 2px solid var(--accent-dim); outline-offset: 2px; }
+.panel-btn::before {
+  content: '';
+  flex: none;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid currentColor;
+  opacity: .7;
+  transition: transform .16s ease, opacity .16s ease;
+}
+.panel-btn:hover::before { opacity: 1; }
+.panel.collapsed .panel-btn::before { transform: rotate(-90deg); }
+.panel.collapsed > :not(.panel-head) { display: none !important; }
+.panel.collapsed .panel-head { margin-bottom: 0; }
+.panel.collapsed .panel-head h2 { color: var(--muted); }
+.panel.collapsed .panel-head h2:hover { color: var(--text); }
+
 /* ---------------- 表单 ---------------- */
 .field-row { display: flex; gap: 10px; align-items: flex-end; }
 .grow { flex: 1; min-width: 0; }

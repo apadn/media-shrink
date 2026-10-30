@@ -5,7 +5,7 @@ import os
 import shutil
 
 APP_NAME = "MediaShrink"
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.2.1"
 
 PORT = int(os.environ.get("PORT", "8000"))
 

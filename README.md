@@ -28,6 +28,7 @@
 | **可排除文件夹** | 扫描时可跳过指定目录：默认已排除 `@eaDir` / `#recycle` / `lost+found` 等系统垃圾目录，界面上还能临时增删；支持 `*` `?` 通配，既能按目录名匹配，也能按相对路径匹配 |
 | **压缩完可处理源文件** | 每个完成的任务都能选「保留 / 改名加 `.old` 后缀 / 删除」，删除需二次勾选确认；只有输出校验通过才允许操作 |
 | **转码历史 + 避免重复压** | 每次成功都记一条（体积变化 / 用时 / 预设 / 编码器），可搜索回看；扫描时用「大小 + mtime」指纹比对，压过的标「已转过」且默认不勾选 |
+| **面板可折叠** | 扫描结果 / 任务队列 / 转码历史 三块，点标题就能收起，折叠后标题行仍显示条数与节省量；状态记在本地，刷新后保持。重新扫描或提交任务时会自动展开对应的面板 |
 | 较多预设可选 | 16 个预设：AV1 / HEVC / H.264 各有极致压缩→视觉无损多档，另有动画优化、HDR 保留、仅重封装 |
 | **保留手动配置** | 预设之外还有一个「手动配置」：编码格式、CRF 或目标码率、编码速度、分辨率上限、位深、音频编码都能自己定，可全局生效也可只改某一行 |
 | 优先 AV1 / HEVC | 全部预设基于 AV1 与 HEVC，H.264 仅作兼容兜底 |
@@ -40,8 +41,8 @@
 
 ## 快速开始
 
-镜像自行构建即可（linux/amd64，约 1.0 GB）。下文命令里的镜像名写作 `media-shrink`，纯本地用就是这么写；
-想推到自己的镜像仓库就加前缀，写成 `<你的账号>/media-shrink:latest`。
+镜像自行构建即可（linux/amd64，约 1.0 GB）。镜像名统一是 `xdxy/media-shrink`，构建脚本默认就打成这个名字；
+换别的前缀（另一个 Docker Hub 账号、私有 Registry）用 `NS=你的账号 ./scripts/build.sh`。
 
 ### 方式一：直接运行（推荐）
 
@@ -49,7 +50,7 @@
 
 ```bash
 ./scripts/build.sh                    # 本地构建（版本号 + latest 双标签）
-docker load -i media-shrink-1.2.0-amd64.tar   # 或者加载离线包
+docker load -i media-shrink-1.2.1-amd64.tar   # 或者加载离线包
 ```
 
 然后起容器：
@@ -60,7 +61,7 @@ docker run -d --name media-shrink --restart unless-stopped \
   -v /你的/影视目录:/media \
   -v /你的/appdata/media-shrink:/data \
   --device=/dev/dri:/dev/dri \
-  media-shrink:latest
+  xdxy/media-shrink:latest
 ```
 
 打开 <http://localhost:8420> ；也可以直接 `http://localhost:8420/?scan=/media/movies` 一步进到某个目录的扫描结果（适合收藏成书签）。
@@ -77,7 +78,7 @@ docker run -d --name media-shrink --restart unless-stopped \
 ### 方式二：从源码构建
 
 ```bash
-git clone https://github.com/<你的账号>/media-shrink.git
+git clone https://github.com/apadn/media-shrink.git
 cd media-shrink
 
 docker compose up -d --build      # compose 里已经配好路径和参数
@@ -512,7 +513,7 @@ docker run -d --name media-shrink --restart unless-stopped \
   -e ACCESS_TOKEN=换成一个长随机串 \
   -v /你的/影视目录:/media -v /你的/appdata/media-shrink:/data \
   --device=/dev/dri:/dev/dri \
-  media-shrink:latest
+  xdxy/media-shrink:latest
 ```
 
 生成一个够强的令牌：`openssl rand -hex 24`（或 `python3 -c "import secrets;print(secrets.token_urlsafe(32))"`）。
@@ -611,16 +612,34 @@ media-shrink/
 ./scripts/build.sh              # 只构建（版本号 + latest 双标签）
 ./scripts/build.sh --tar        # 构建 + 导出 dist/media-shrink-<版本>-amd64.tar（包内同样双标签）+ sha256
 ./scripts/build.sh --push       # 构建 + 推送两个标签（先 docker login）
-NS=你的账号 ./scripts/build.sh  # 加仓库前缀：<你的账号>/media-shrink:<版本> + :latest
+NS=你的账号 ./scripts/build.sh  # 换仓库前缀（默认 xdxy）
 ```
 
-不设 `NS` 时镜像名就是 `media-shrink:<版本>` / `media-shrink:latest`，纯本地用足够了；
-要推到镜像仓库（Docker Hub、私有 Registry 都行）就得设 `NS`，否则会推到 `docker.io/library` 被拒。
+`NS` 默认 `xdxy`，镜像名就是 `xdxy/media-shrink:<版本>` 和 `xdxy/media-shrink:latest`；
+要换成别的前缀就显式传 `NS=你的账号`，不然推的时候会落到 `docker.io/library` 被拒。
+`NS` 传空会直接报错退出——镜像名不允许不带命名空间。
+
+> **镜像名固定为 `xdxy/media-shrink`，不要改。**
+> NAS（Unraid 等）的容器模板里写死的就是 `xdxy/media-shrink:latest`，改名后镜像对不上，
+> 容器拉不起来，自动更新也会断掉。版本号往上走，命名空间和仓库名一直不变。
+
+### 自动更新依赖镜像仓库
+
+NAS 上的「检查更新」比的是**镜像仓库里 tag 的 digest**，不是 Release 里的离线 tar。
+所以想用自动更新，每次发版除了出包，还得把两个标签推上去：
+
+```bash
+docker push xdxy/media-shrink:<版本>
+docker push xdxy/media-shrink:latest
+```
+
+`latest` 必须跟着版本号一起推，且指向同一个镜像 ID；只推版本号的话，NAS 上停在
+`latest` 的容器永远收不到更新。离线 tar 只用于没网或不便直连仓库的场合。
 
 手动等价命令长这样（不推荐，容易漏标签）：
 
 ```bash
-NS=你的账号
+NS=xdxy
 docker build -t $NS/media-shrink:$VERSION -t $NS/media-shrink:latest .
 docker push $NS/media-shrink:$VERSION
 docker push $NS/media-shrink:latest
@@ -631,7 +650,7 @@ docker push $NS/media-shrink:latest
 本机是 x86_64，`docker build` 出来的就是 `linux/amd64`，普通 NAS / 服务器都能直接用。要同时出 arm64（树莓派、ARM 版 NAS）就换成 buildx：
 
 ```bash
-NS=你的账号
+NS=xdxy
 docker buildx build --platform linux/amd64,linux/arm64 \
   -t $NS/media-shrink:latest -t $NS/media-shrink:$VERSION --push .
 ```
@@ -677,7 +696,7 @@ bash test/e2e.sh
 
 ## 许可证
 
-[MIT](LICENSE) © 2026 The MediaShrink Authors
+[MIT](LICENSE) © 2026 apadn
 
 镜像里打包的 [ffmpeg](https://github.com/BtbN/FFmpeg-Builds) 是 GPL 构建（含 libx265 / libsvtav1 / x264 等），
 分发镜像时需同时遵守其 GPL 条款；本项目自身的代码仍是 MIT。

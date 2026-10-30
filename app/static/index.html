@@ -76,7 +76,7 @@
   <!-- 扫描结果 -->
   <section class="panel" id="resultPanel" hidden>
     <div class="panel-head">
-      <h2>扫描结果 <span id="statsText" class="muted small"></span></h2>
+      <h2><button type="button" class="panel-btn" data-panel-btn aria-expanded="true" title="点击折叠 / 展开">扫描结果 <span id="statsText" class="muted small"></span></button></h2>
       <div class="head-actions">
         <select id="bulkPreset" class="mini"></select>
         <button id="applyPreset" class="ghost mini-btn">应用到勾选</button>
@@ -161,7 +161,7 @@
   <!-- 任务队列 -->
   <section class="panel" id="jobPanel">
     <div class="panel-head">
-      <h2>任务队列 <span id="jobStats" class="muted small"></span></h2>
+      <h2><button type="button" class="panel-btn" data-panel-btn aria-expanded="true" title="点击折叠 / 展开">任务队列 <span id="jobStats" class="muted small"></span></button></h2>
       <div class="head-actions">
         <button id="srcBulkPause" class="ghost mini-btn" hidden>暂停全部</button>
         <button id="srcBulkResume" class="ghost mini-btn" hidden>继续全部</button>
@@ -177,7 +177,7 @@
   <!-- 转码历史 -->
   <section class="panel" id="histPanel">
     <div class="panel-head">
-      <h2>转码历史 <span id="histStats" class="muted small"></span></h2>
+      <h2><button type="button" class="panel-btn" data-panel-btn aria-expanded="true" title="点击折叠 / 展开">转码历史 <span id="histStats" class="muted small"></span></button></h2>
       <div class="head-actions">
         <input id="histQ" type="text" class="mini hist-q" placeholder="搜索文件名…" autocomplete="off">
         <button id="histRefresh" class="ghost mini-btn">刷新</button>

@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: 构建镜像
-        run: docker build --tag media-shrink:ci .
+        run: docker build --tag xdxy/media-shrink:ci .
 
       - name: 起容器做健康检查
         run: |
@@ -45,7 +45,7 @@ jobs:
           docker run -d --name ms-ci -p 8000:8000 \
             -v "$PWD/.ci/media:/media" \
             -e MEDIA_ROOTS=/media \
-            media-shrink:ci
+            xdxy/media-shrink:ci
 
           for i in $(seq 1 40); do
             if curl -fsS http://127.0.0.1:8000/api/health; then
