@@ -1,0 +1,72 @@
+services:
+  media-shrink:
+    # 本地构建出来的镜像名就是 media-shrink:latest；
+    # 用自己仓库里的镜像就设 IMAGE=<你的账号>/media-shrink:latest
+    image: ${IMAGE:-media-shrink:latest}
+    build:
+      context: .
+      args:
+        # 国内网络建议用中科大/清华源（实测远快于官方源）；海外改成 deb.debian.org
+        APT_MIRROR: mirrors.ustc.edu.cn
+        PIP_INDEX_URL: https://pypi.org/simple
+    container_name: media-shrink
+    restart: unless-stopped
+    ports:
+      - "8420:8000"
+      # 只给本机用就改成 "127.0.0.1:8420:8000"，外部访问走反向代理
+
+    # 想不以 root 运行就取消下面两行注释（README「访问控制」一节有说明）
+    # user: "1000:1000"
+    # group_add: ["989"]          # 宿主机的 render 组 GID：getent group render
+
+    # Intel 核显 / AMD 显卡的硬件编码入口
+    devices:
+      - /dev/dri:/dev/dri
+
+    volumes:
+      # 要扫描和压缩的媒体目录（可加多条）
+      - ${MEDIA_DIR:-./media}:/media
+      # 可选：统一的输出目录；留空环境变量 OUTPUT_DIR 时输出到原文件旁边
+      - ${OUT_DIR:-./output}:/output
+      - ./data:/data
+
+    environment:
+      TZ: Asia/Shanghai
+      # 访问令牌。留空 = 不校验（仅适合本机/完全可信的内网）。
+      # 设了之后用 http://IP:8420/?token=令牌 打开一次，脚本请求带 X-Auth-Token 头。
+      # 生成方式：openssl rand -hex 24
+      ACCESS_TOKEN: ""
+      # 允许浏览/扫描的根目录（安全边界）
+      MEDIA_ROOTS: /media,/output,/data
+      # 留空 = 压缩结果输出到源文件同目录；填 /output = 统一输出
+      OUTPUT_DIR: ""
+      OUTPUT_SUFFIX: "_compressed"
+      # 输出容器：mkv（默认）| mp4 | webm | auto（跟随源文件）
+      OUTPUT_CONTAINER: "mkv"
+      # 压缩完成后源文件的默认可选操作（界面上每个任务单独确认）
+      #   keep 保留 | rename 改名加后缀归档 | delete 删除
+      SOURCE_ACTION: "keep"
+      SOURCE_OLD_SUFFIX: ".old"
+      # 设为 "0" 可禁用删除源文件，界面只保留「保留 / 改名」两个选项
+      ALLOW_SOURCE_DELETE: "1"
+      # 并行任务数。硬件编码建议 1~2；纯 CPU 编码按核数自行调整
+      CONCURRENT_JOBS: "1"
+      # 扫描时跳过的目录（逗号分隔，支持 * ? 通配，不区分大小写）；不设则用内置默认值
+      # EXCLUDE_DIRS: "@eaDir,#recycle,lost+found,花絮,*/sample"
+      # 转码历史存在数据卷里（默认 /data/history.json），容器重建不丢。
+      # 想放到别处就设 HISTORY_FILE；最多留多少条改 HISTORY_MAX
+      DATA_DIR: /data
+      HISTORY_MAX: "5000"
+      # VAAPI 渲染节点
+      VAAPI_DEVICE: /dev/dri/renderD128
+
+    # ---------- NVIDIA 显卡（需要宿主机先装 nvidia-container-toolkit）----------
+    # 用 nvidia 的话把上面 devices 里的 /dev/dri 保留（Intel 核显）或删除，
+    # 并取消下面注释：
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu, video, compute, utility]

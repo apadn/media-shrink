@@ -1,0 +1,26 @@
+# 本地产物（docker save 之类）
+dist/
+*.tar
+*.tar.gz
+*.sha256
+.tmp-*
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+.Python
+
+# 运行时数据（挂载点，绝不入库）
+data/
+media/
+output/
+*.log
+
+# 编辑器 / 系统
+.DS_Store
+.idea/
+.vscode/
+*.swp
